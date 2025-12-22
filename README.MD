@@ -1,4 +1,4 @@
-# blackhole sim
+# blackhole-sim
 
 ## Controls:
 
