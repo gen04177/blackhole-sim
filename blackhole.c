@@ -375,9 +375,19 @@ reset_blackhole ()
   blackhole_manual_override = 0;
 }
 
+void 
+printHelp(void)
+{
+
+    printf("\n\nblackhole-sim by gen04177 - v0.1 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL, SDL_COMPILEDVERSION >> 24, (SDL_COMPILEDVERSION >> 16) & 0xFF, SDL_COMPILEDVERSION & 0xFFFF);
+
+}
+
 int
 main (int argc, char *argv[])
 {
+        printHelp();
+	
   srand (time (NULL));
   if (SDL_Init (SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0)
     {
