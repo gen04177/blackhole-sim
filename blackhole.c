@@ -4,12 +4,35 @@
 #include <math.h>
 #include <time.h>
 
-#define MAX_GALAXIES 20
+extern float starData[][3];
+
+#define MAX_GALAXIES 10
 #define DELTAT 0.02
 #define QCONS 0.001
 #define GALAXYRANGESIZE 0.1
 #define GALAXYMINSIZE 0.15
-#define COLORBASE 16
+#define COLORBASE 64
+#define GALAXY_STAR_COUNT_MIN 500
+#define GALAXY_STAR_COUNT_MAX 10000
+#define GALAXY_F_HIT_ITERATIONS 7500
+#define GALAXY_STAR_SCALE 1.0
+
+#define BH_ACTIVE_TIME_MS 60000
+#define BH_INACTIVE_TIME_MS 300000
+#define BH_EFFECT_RADIUS 0.05
+#define BH_GRAVITY_FACTOR 0.01
+#define BH_SOFTENING 0.0001
+
+#define NUM_FIXED_STARS 9021
+#define STAR_DISTANCE 4000.0
+#define STAR_RADIUS_VARIATION 200.0
+#define STAR_MAG_SCALE 6.0
+#define STAR_BRIGHTNESS_MIN 70
+#define STAR_BRIGHTNESS_MAX 255
+#define STAR_BRIGHTNESS_SCALE 40
+
+
+double floatRand (void);
 
 double camera_distance = 1.0;
 double camera_rot_speed = 0.03;
@@ -19,10 +42,16 @@ Uint32 blackhole_last_switch = 0;
 int blackhole_active = 1;
 int blackhole_manual_override = 0;
 
-const Uint32 BH_ACTIVE_TIME = 60000;
-const Uint32 BH_INACTIVE_TIME = 300000;
+typedef struct
+{
+  double ra;
+  double dec;
+  double mag;
+  double pos[3];
+} FixedStar;
 
-
+FixedStar fixedStars[NUM_FIXED_STARS];
+int fixedStarCount = NUM_FIXED_STARS;
 
 typedef struct
 {
@@ -95,16 +124,16 @@ startover (int width, int height)
   universe.scale = fmin (width, height) / 500.0;
   universe.midx = width / 2;
   universe.midy = height / 2;
-  universe.pscale = 1;
+  universe.pscale = GALAXY_STAR_SCALE;
 
   universe.ngalaxies = MAX_GALAXIES;
-  universe.f_hititerations = 7500;
+  universe.f_hititerations = GALAXY_F_HIT_ITERATIONS;
 
   for (int i = 0; i < universe.ngalaxies; i++)
     {
       Galaxy *g = &universe.galaxies[i];
 
-      g->nstars = 500 + rand () % 10001;
+      g->nstars = GALAXY_STAR_COUNT_MIN + rand () % GALAXY_STAR_COUNT_MAX;
       g->stars = malloc (sizeof (Star) * g->nstars);
       g->oldpoints = malloc (sizeof (SDL_Rect) * g->nstars);
       g->newpoints = malloc (sizeof (SDL_Rect) * g->nstars);
@@ -313,15 +342,16 @@ update_blackhole_state ()
 
   if (!blackhole_manual_override)
     {
-      if (blackhole_active && now - blackhole_last_switch >= BH_ACTIVE_TIME)
+      if (blackhole_active
+	  && now - blackhole_last_switch >= BH_ACTIVE_TIME_MS)
 	{
-	  blackhole_active = 0;	
+	  blackhole_active = 0;
 	  blackhole_last_switch = now;
 	}
       else if (!blackhole_active
-	       && now - blackhole_last_switch >= BH_INACTIVE_TIME)
+	       && now - blackhole_last_switch >= BH_INACTIVE_TIME_MS)
 	{
-	  blackhole_active = 1;	
+	  blackhole_active = 1;
 	  blackhole_last_switch = now;
 	  startover (universe.midx * 2, universe.midy * 2);
 	}
@@ -351,13 +381,14 @@ handle_blackhole ()
 	  double dist2 = dx * dx + dy * dy + dz * dz;
 	  double dist = sqrt (dist2);
 
-	  double acc = blackhole.mass * 0.01 / (dist2 + 0.0001);
+	  double acc =
+	    blackhole.mass * BH_GRAVITY_FACTOR / (dist2 + BH_SOFTENING);
 
 	  st->vel[0] += acc * dx / dist * DELTAT;
 	  st->vel[1] += acc * dy / dist * DELTAT;
 	  st->vel[2] += acc * dz / dist * DELTAT;
 
-	  if (dist < 0.05)
+	  if (dist < BH_EFFECT_RADIUS)
 	    {
 	      st->pos[0] = st->pos[1] = st->pos[2] = blackhole.pos[0];
 	      st->vel[0] = st->vel[1] = st->vel[2] = 0;
@@ -375,19 +406,81 @@ reset_blackhole ()
   blackhole_manual_override = 0;
 }
 
-void 
-printHelp(void)
+void
+printHelp (void)
 {
 
-    printf("\n\nblackhole-sim by gen04177 - v0.1 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL, SDL_COMPILEDVERSION >> 24, (SDL_COMPILEDVERSION >> 16) & 0xFF, SDL_COMPILEDVERSION & 0xFFFF);
+  printf
+    ("\n\nblackhole-sim by gen04177 - v0.2 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n",
+     SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL,
+     SDL_COMPILEDVERSION >> 24, (SDL_COMPILEDVERSION >> 16) & 0xFF,
+     SDL_COMPILEDVERSION & 0xFFFF);
 
+}
+
+void
+initFixedStars ()
+{
+
+  for (int i = 0; i < fixedStarCount; i++)
+    {
+      double ra = starData[i][0] * M_PI / 180.0;
+      double dec = starData[i][1] * M_PI / 180.0;
+
+      fixedStars[i].ra = starData[i][0];
+      fixedStars[i].dec = starData[i][1];
+      fixedStars[i].mag = starData[i][2];
+
+      double r = STAR_DISTANCE
+	+ (floatRand () - 0.5) * STAR_RADIUS_VARIATION
+	+ (fixedStars[i].mag * STAR_MAG_SCALE);
+
+      fixedStars[i].pos[0] = r * cos (dec) * cos (ra);
+      fixedStars[i].pos[1] = r * sin (dec);
+      fixedStars[i].pos[2] = r * cos (dec) * sin (ra);
+    }
+}
+
+
+
+void
+draw_fixed_stars (SDL_Renderer * renderer)
+{
+  double cox = cos (universe.rot_y);
+  double six = sin (universe.rot_y);
+  double cor = cos (universe.rot_x);
+  double sir = sin (universe.rot_x);
+
+  for (int i = 0; i < fixedStarCount; i++)
+    {
+      FixedStar *s = &fixedStars[i];
+
+      double x = cox * s->pos[0] - six * s->pos[2];
+      double z = six * s->pos[0] + cox * s->pos[2];
+      double y = cor * s->pos[1] - sir * z;
+
+      int sx = (int) (x * universe.scale * 2.0) + universe.midx;
+      int sy = (int) (y * universe.scale * 2.0) + universe.midy;
+
+      int brightness =
+	(int) (STAR_BRIGHTNESS_MAX - s->mag * STAR_BRIGHTNESS_SCALE);
+      if (brightness < STAR_BRIGHTNESS_MIN)
+	brightness = STAR_BRIGHTNESS_MIN;
+      if (brightness > STAR_BRIGHTNESS_MAX)
+	brightness = STAR_BRIGHTNESS_MAX;
+
+      SDL_SetRenderDrawColor (renderer, brightness, brightness, brightness,
+			      255);
+      SDL_RenderDrawPoint (renderer, sx, sy);
+    }
 }
 
 int
 main (int argc, char *argv[])
 {
-        printHelp();
-	
+
+  printHelp ();
+
   srand (time (NULL));
   if (SDL_Init (SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0)
     {
@@ -411,13 +504,14 @@ main (int argc, char *argv[])
 
   int width = 1920, height = 1080;
   SDL_Window *window =
-    SDL_CreateWindow ("fake blackhole-sim", SDL_WINDOWPOS_CENTERED,
+    SDL_CreateWindow ("blackhole-sim", SDL_WINDOWPOS_CENTERED,
 		      SDL_WINDOWPOS_CENTERED, width, height,
 		      SDL_WINDOW_SHOWN);
   SDL_Renderer *renderer =
     SDL_CreateRenderer (window, -1, SDL_RENDERER_ACCELERATED);
 
   startover (width, height);
+  initFixedStars ();
 
   int running = 1;
   SDL_Event event;
@@ -483,7 +577,8 @@ main (int argc, char *argv[])
 
       SDL_SetRenderDrawColor (renderer, 0, 0, 0, 255);
       SDL_RenderClear (renderer);
-
+      draw_fixed_stars (renderer);
+      draw_galaxy (renderer);
       draw_galaxy (renderer);
 
       SDL_RenderPresent (renderer);
