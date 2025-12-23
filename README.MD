@@ -2,9 +2,11 @@
 
 ## Controls:
 
-**Left stick, Right, Left:** rotate the camera...
+**Left stick, Right, Left:** rotate the camera X axis
 
-**Left stick, Up, Down:**  zoom in/out
+**Left stick, Up, Down:** rotate the camera Y axis
+
+**Right stick, Up, Down:**  zoom in/out
 
 **R1:** reset galaxies
 
