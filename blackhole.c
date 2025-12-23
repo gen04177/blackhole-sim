@@ -549,27 +549,35 @@ main (int argc, char *argv[])
 	  Sint16 ly =
 	    SDL_GameControllerGetAxis (controller, SDL_CONTROLLER_AXIS_LEFTY);
 
+	  Sint16 ry =
+	    SDL_GameControllerGetAxis (controller,
+				       SDL_CONTROLLER_AXIS_RIGHTY);
+
 	  double nx = lx / 32768.0;
 	  double ny = ly / 32768.0;
+	  double nz = ry / 32768.0;
 
 	  if (fabs (nx) < 0.1)
 	    nx = 0;
 	  if (fabs (ny) < 0.1)
 	    ny = 0;
+	  if (fabs (nz) < 0.1)
+	    nz = 0;
 
+	  universe.rot_x += ny * camera_rot_speed;
 	  universe.rot_y += nx * camera_rot_speed;
 
-	  camera_distance += ny * camera_zoom_speed;
+	  camera_distance += nz * camera_zoom_speed;
 
 	  if (camera_distance < 0.2)
 	    camera_distance = 0.2;
-
 	  if (camera_distance > 100.0)
 	    camera_distance = 100.0;
 
 	  universe.scale = camera_distance * (fmin (width, height) / 500.0);
-	}
 
+
+	}
 
       update_blackhole_state ();
       handle_blackhole ();
