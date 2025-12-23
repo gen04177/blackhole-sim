@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -O2 `sdl2-config --cflags`
 LDFLAGS = `sdl2-config --libs` -lm
-SRC = blackhole.c
+SRC = blackhole.c stars.c
 OBJ = $(SRC:.c=.o)
 TARGET = blackholesim
 
