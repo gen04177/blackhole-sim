@@ -2,9 +2,9 @@
 
 ## Controls:
 
-**Left stick, Right, Left:** rotate the camera X axis
+**Left stick, Right, Left:** rotate the camera, X axis
 
-**Left stick, Up, Down:** rotate the camera Y axis
+**Left stick, Up, Down:** rotate the camera, Y axis
 
 **Right stick, Up, Down:**  zoom in/out
 
