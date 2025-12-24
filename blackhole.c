@@ -80,9 +80,6 @@ typedef struct
 
 BlackHole blackhole = { {0, 0, 0}, 1e6 };
 
-Star *free_stars = NULL;
-int free_star_count = 0;
-
 typedef struct
 {
   double mat[3][3];
@@ -107,16 +104,35 @@ floatRand ()
 
 
 void
+freeUniverse ()
+{
+  for (int i = 0; i < universe.ngalaxies; i++)
+    {
+      if (universe.galaxies[i].stars)
+	free (universe.galaxies[i].stars);
+
+      if (universe.galaxies[i].oldpoints)
+	free (universe.galaxies[i].oldpoints);
+
+      if (universe.galaxies[i].newpoints)
+	free (universe.galaxies[i].newpoints);
+
+      universe.galaxies[i].stars = NULL;
+      universe.galaxies[i].oldpoints = NULL;
+      universe.galaxies[i].newpoints = NULL;
+      universe.galaxies[i].nstars = 0;
+      universe.galaxies[i].mass = 0;
+    }
+
+  universe.ngalaxies = 0;
+}
+
+void
 startover (int width, int height)
 {
 
-  for (int i = 0; i < universe.ngalaxies; i++)
-    {
-      free (universe.galaxies[i].stars);
-      free (universe.galaxies[i].oldpoints);
-      free (universe.galaxies[i].newpoints);
-    }
-
+  freeUniverse ();
+	
   universe.step = 0;
   universe.rot_x = 0;
   universe.rot_y = 0;
@@ -587,8 +603,7 @@ main (int argc, char *argv[])
       SDL_RenderClear (renderer);
       draw_fixed_stars (renderer);
       draw_galaxy (renderer);
-      draw_galaxy (renderer);
-
+      
       SDL_RenderPresent (renderer);
 
       SDL_Delay (16);
@@ -600,6 +615,7 @@ main (int argc, char *argv[])
     {
       SDL_GameControllerClose (controller);
     }
+  freeUniverse ();	
   SDL_Quit ();
   return 0;
 }
