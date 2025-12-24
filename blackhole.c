@@ -428,7 +428,7 @@ printHelp (void)
 {
 
   printf
-    ("\n\nblackhole-sim by gen04177 - v0.2 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n",
+    ("\n\nblackhole-sim by gen04177 - v0.3 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n",
      SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL,
      SDL_COMPILEDVERSION >> 24, (SDL_COMPILEDVERSION >> 16) & 0xFF,
      SDL_COMPILEDVERSION & 0xFFFF);
