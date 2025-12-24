@@ -149,7 +149,8 @@ startover (int width, int height)
     {
       Galaxy *g = &universe.galaxies[i];
 
-      g->nstars = GALAXY_STAR_COUNT_MIN + rand () % GALAXY_STAR_COUNT_MAX;
+      g->nstars = GALAXY_STAR_COUNT_MIN +
+	    rand () % (GALAXY_STAR_COUNT_MAX - GALAXY_STAR_COUNT_MIN + 1);
       g->stars = malloc (sizeof (Star) * g->nstars);
       g->oldpoints = malloc (sizeof (SDL_Rect) * g->nstars);
       g->newpoints = malloc (sizeof (SDL_Rect) * g->nstars);
