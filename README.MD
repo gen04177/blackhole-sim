@@ -25,7 +25,7 @@
 
 <div align="center">
 
-<img width="800" src="./blackhole-sim2.png">
+<img width="800" src="./blackhole-sim02.png">
 <br>
 
 </div>
