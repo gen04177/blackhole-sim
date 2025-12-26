@@ -22,6 +22,9 @@ extern float starData[][3];
 #define BH_EFFECT_RADIUS 0.05
 #define BH_GRAVITY_FACTOR 0.01
 #define BH_SOFTENING 0.0001
+#define BH_LENS_STRENGTH 4.5
+#define BH_HORIZON_RADIUS 8.0
+#define BH_RING_RADIUS 35.0
 
 #define NUM_FIXED_STARS 9021
 #define STAR_DISTANCE 4000.0
@@ -261,37 +264,92 @@ draw_galaxy (SDL_Renderer * renderer)
 	  st->pos[1] += st->vel[1];
 	  st->pos[2] += st->vel[2];
 
-	  newp->x =
-	    (int) (((cox * st->pos[0]) -
-		    (six * st->pos[2])) * universe.scale * universe.pscale) +
-	    universe.midx;
-	  newp->y =
-	    (int) (((cor * st->pos[1]) -
-		    (sir * ((six * st->pos[0]) + (cox * st->pos[2])))) *
-		   universe.scale * universe.pscale) + universe.midy;
-	  newp->w = newp->h = universe.pscale;
+	  double dx = st->pos[0] - blackhole.pos[0];
+	  double dy = st->pos[1] - blackhole.pos[1];
+	  double dz = st->pos[2] - blackhole.pos[2];
 
-	  double dx = blackhole.pos[0] - st->pos[0];
-	  double dy = blackhole.pos[1] - st->pos[1];
-	  double dz = blackhole.pos[2] - st->pos[2];
 	  double dist = sqrt (dx * dx + dy * dy + dz * dz);
 
-	  Uint8 intensity = 255;
-	  if (dist < 0.5)
+	  if (dist < BH_HORIZON_RADIUS)
+	    continue;
+
+	  double deflection = BH_LENS_STRENGTH / (dist + 0.02);
+
+	  double angle = atan2 (dx, dz);
+	  double radius = sqrt (dx * dx + dz * dz);
+	  angle += deflection;
+
+	  double lx = blackhole.pos[0] + radius * sin (angle);
+	  double lz = blackhole.pos[2] + radius * cos (angle);
+	  double ly = st->pos[1];
+
+	  int sx = (int) (((cox * lx) - (six * lz))
+			  * universe.scale * universe.pscale) + universe.midx;
+
+	  int sy = (int) (((cor * ly) -
+			   (sir * ((six * lx) + (cox * lz))))
+			  * universe.scale * universe.pscale) + universe.midy;
+
+	  newp->x = sx;
+	  newp->y = sy;
+	  newp->w = newp->h = universe.pscale;
+
+	  Uint8 cr, cg, cb;
+
+	  if (dist < BH_RING_RADIUS)
 	    {
-	      intensity = (Uint8) (255 * (dist / 0.5));
+
+	      double r = sqrt (dx * dx + dz * dz);
+	      if (r < 1e-6)
+		r = 1e-6;
+
+	      double tx = -dz / r;
+	      double tz = dx / r;
+
+	      double v = sqrt (blackhole.mass * BH_GRAVITY_FACTOR / r);
+
+	      st->vel[0] = 0.9 * st->vel[0] + 0.1 * tx * v * DELTAT;
+	      st->vel[2] = 0.9 * st->vel[2] + 0.1 * tz * v * DELTAT;
+
+	      st->vel[1] *= 0.8;
+	      st->pos[1] *= 0.95;
+
+	      double t = dist / BH_RING_RADIUS;
+	      cr = 255;
+	      cg = (Uint8) (200 * t);
+	      cb = (Uint8) (80 * t);
+	    }
+	  else
+	    {
+	      cr = g->r;
+	      cg = g->g;
+	      cb = g->b;
 	    }
 
-	  SDL_SetRenderDrawColor (renderer,
-				  g->r * intensity / 255,
-				  g->g * intensity / 255,
-				  g->b * intensity / 255, 255);
-
+	  SDL_SetRenderDrawColor (renderer, cr, cg, cb, 255);
 	  SDL_RenderFillRect (renderer, newp);
+
+	  if (dist < BH_RING_RADIUS)
+	    {
+	      double ly2 = -ly;
+
+	      int sy2 = (int) (((cor * ly2) -
+				(sir * ((six * lx) + (cox * lz))))
+			       * universe.scale * universe.pscale) +
+		universe.midy;
+
+	      SDL_Rect ghost = {
+		sx, sy2,
+		universe.pscale, universe.pscale
+	      };
+
+	      SDL_SetRenderDrawColor (renderer, cr / 3, cg / 3, cb / 3, 255);
+
+	      SDL_RenderFillRect (renderer, &ghost);
+	    }
 	}
     }
 }
-
 
 void
 handle_collisions ()
@@ -375,6 +433,20 @@ update_blackhole_state ()
     }
 }
 
+static inline void
+remove_star (Galaxy * g, int index)
+{
+  int last = g->nstars - 1;
+
+  if (index != last)
+    {
+      g->stars[index] = g->stars[last];
+      g->oldpoints[index] = g->oldpoints[last];
+      g->newpoints[index] = g->newpoints[last];
+    }
+
+  g->nstars--;
+}
 
 void
 handle_blackhole ()
@@ -405,11 +477,13 @@ handle_blackhole ()
 	  st->vel[1] += acc * dy / dist * DELTAT;
 	  st->vel[2] += acc * dz / dist * DELTAT;
 
-	  if (dist < BH_EFFECT_RADIUS)
+	  if (dist < BH_HORIZON_RADIUS)
 	    {
-	      st->pos[0] = st->pos[1] = st->pos[2] = blackhole.pos[0];
-	      st->vel[0] = st->vel[1] = st->vel[2] = 0;
+	      remove_star (g, j);
+	      j--;
+	      continue;
 	    }
+	
 	}
     }
 }
@@ -428,7 +502,7 @@ printHelp (void)
 {
 
   printf
-    ("\n\nblackhole-sim by gen04177 - v0.3 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n",
+    ("\n\nblackhole-sim by gen04177 - v0.4 - Running with SDL %d.%d.%d (compiled with %d.%d.%d)\n",
      SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL,
      SDL_COMPILEDVERSION >> 24, (SDL_COMPILEDVERSION >> 16) & 0xFF,
      SDL_COMPILEDVERSION & 0xFFFF);
